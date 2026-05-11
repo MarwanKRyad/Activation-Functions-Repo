@@ -1,0 +1,203 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Interactive Sign Demo</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: #fef2f2; /* خلفية محمرة خفيفة جداً */
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 40px 20px;
+            margin: 0;
+        }
+        .container {
+            background: white;
+            padding: 30px;
+            border-radius: 15px;
+            box-shadow: 0 10px 30px rgba(192, 57, 43, 0.1);
+            text-align: center;
+            max-width: 900px;
+            width: 100%;
+        }
+        h2 {
+            color: #c0392b; /* أحمر داكن */
+            margin-top: 0;
+        }
+        canvas {
+            background: white;
+            border: 1px solid #e0e0e0;
+            border-radius: 8px;
+            margin-bottom: 30px;
+            max-width: 100%;
+            height: auto;
+        }
+        .controls {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 20px;
+        }
+        input[type=range] {
+            width: 90%;
+            cursor: pointer;
+            height: 8px;
+            background: #fadbd8;
+            border-radius: 5px;
+            outline: none;
+        }
+        input[type=range]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            width: 22px;
+            height: 22px;
+            border-radius: 50%;
+            background: #c0392b;
+            cursor: pointer;
+            border: 2px solid white;
+        }
+        .info-box {
+            background: #fdf2f2;
+            padding: 15px 40px;
+            border-radius: 8px;
+            border-left: 6px solid #c0392b;
+            font-size: 1.3em;
+            display: flex;
+            gap: 50px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.05);
+        }
+        .value {
+            font-weight: bold;
+            color: #c0392b;
+        }
+        .legend {
+            display: flex;
+            justify-content: center;
+            gap: 20px;
+            margin-bottom: 10px;
+            font-size: 0.9em;
+            color: #555;
+        }
+        .legend span::before {
+            content: '';
+            display: inline-block;
+            width: 15px;
+            height: 3px;
+            margin-right: 5px;
+            vertical-align: middle;
+        }
+        .legend .func::before { background: #c0392b; }
+        .legend .der::before { background: #e74c3c; border-top: 2px dashed white; }
+    </style>
+</head>
+<body>
+
+    <div class="container">
+        <h2>Sign (Step) Activation Function - Live Demo</h2>
+        
+        <div class="legend">
+            <span class="func">Sign Function f(x)</span>
+            <span class="der">Derivative f'(x) = 0</span>
+        </div>
+
+        <canvas id="plotCanvas" width="800" height="400"></canvas>
+        
+        <div class="controls">
+            <input type="range" id="xSlider" min="-5" max="5" step="0.1" value="-4">
+            
+            <div class="info-box">
+                <span>Input (x): <span class="value" id="xValDisplay">-4.0</span></span>
+                <span>Output f(x): <span class="value" id="yValDisplay">-1</span></span>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const canvas = document.getElementById('plotCanvas');
+        const ctx = canvas.getContext('2d');
+        const slider = document.getElementById('xSlider');
+        const xDisplay = document.getElementById('xValDisplay');
+        const yDisplay = document.getElementById('yValDisplay');
+
+        const xMin = -5, xMax = 5;
+        const yMin = -2, yMax = 2;
+
+        function sign(x) {
+            if (x > 0) return 1;
+            if (x < 0) return -1;
+            return 0;
+        }
+
+        function mapX(x) { return ((x - xMin) / (xMax - xMin)) * canvas.width; }
+        function mapY(y) { return canvas.height - ((y - yMin) / (yMax - yMin)) * canvas.height; }
+
+        function draw() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+            // Grid
+            ctx.strokeStyle = '#f5f5f5';
+            ctx.lineWidth = 1;
+            for(let i = xMin; i <= xMax; i++) {
+                ctx.beginPath(); ctx.moveTo(mapX(i), 0); ctx.lineTo(mapX(i), canvas.height); ctx.stroke();
+            }
+            for(let i = yMin; i <= yMax; i++) {
+                ctx.beginPath(); ctx.moveTo(0, mapY(i)); ctx.lineTo(canvas.width, mapY(i)); ctx.stroke();
+            }
+
+            // Axes
+            ctx.strokeStyle = '#999';
+            ctx.lineWidth = 1.5;
+            ctx.beginPath(); ctx.moveTo(mapX(0), 0); ctx.lineTo(mapX(0), canvas.height); ctx.stroke();
+            ctx.beginPath(); ctx.moveTo(0, mapY(0)); ctx.lineTo(canvas.width, mapY(0)); ctx.stroke();
+
+            // Sign Function Plot
+            ctx.strokeStyle = '#c0392b';
+            ctx.lineWidth = 4;
+            
+            // Negative part
+            ctx.beginPath();
+            ctx.moveTo(mapX(xMin), mapY(-1));
+            ctx.lineTo(mapX(-0.05), mapY(-1));
+            ctx.stroke();
+
+            // Positive part
+            ctx.beginPath();
+            ctx.moveTo(mapX(0.05), mapY(1));
+            ctx.lineTo(mapX(xMax), mapY(1));
+            ctx.stroke();
+
+            // Vertical Jump (Dashed)
+            ctx.setLineDash([5, 5]);
+            ctx.strokeStyle = '#e74c3c';
+            ctx.beginPath();
+            ctx.moveTo(mapX(0), mapY(-1));
+            ctx.lineTo(mapX(0), mapY(1));
+            ctx.stroke();
+            ctx.setLineDash([]);
+
+            // Interactive Point
+            let currX = parseFloat(slider.value);
+            let currY = sign(currX);
+            let px = mapX(currX);
+            let py = mapY(currY);
+
+            ctx.fillStyle = '#2c3e50'; // لون غامق للنقطة للوضوح
+            ctx.beginPath();
+            ctx.arc(px, py, 10, 0, Math.PI*2);
+            ctx.fill();
+            ctx.strokeStyle = '#fff';
+            ctx.lineWidth = 3;
+            ctx.stroke();
+
+            // Update Text
+            xDisplay.textContent = currX.toFixed(1);
+            yDisplay.textContent = currY;
+        }
+
+        slider.addEventListener('input', draw);
+        draw();
+    </script>
+</body>
+</html>
