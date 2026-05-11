@@ -77,12 +77,13 @@
             flex-direction: column;
             align-items: center;
             width: 80px;
+            height: 100%;
+            justify-content: flex-end;
         }
         .bar {
             width: 100%;
-            transition: height 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            transition: height 0.2s ease-out;
             border-radius: 5px 5px 0 0;
-            position: relative;
         }
         .bar-label-val {
             margin-top: 10px;
@@ -96,9 +97,9 @@
         }
 
         /* ألوان مخصصة لكل كلاس */
-        .class-a { background: #e67e22; } /* Orange */
-        .class-b { background: #3498db; } /* Blue */
-        .class-c { background: #2ecc71; } /* Green */
+        .class-a { background: #e67e22; } 
+        .class-b { background: #3498db; } 
+        .class-c { background: #2ecc71; } 
 
         .sum-badge {
             background: #11CAA0;
@@ -146,20 +147,20 @@
                 <div>
                     <div class="chart-title">1. Raw Output (Logits)</div>
                     <div class="chart-container" id="logitsChart">
-                        <div class="bar-wrapper"><div id="barRawA" class="bar class-a"></div><div class="bar-label-val">A</div></div>
-                        <div class="bar-wrapper"><div id="barRawB" class="bar class-b"></div><div class="bar-label-val">B</div></div>
-                        <div class="bar-wrapper"><div id="barRawC" class="bar class-c"></div><div class="bar-label-val">C</div></div>
+                        <div class="bar-wrapper"><div class="bar class-a"></div><div class="bar-label-val">A</div></div>
+                        <div class="bar-wrapper"><div class="bar class-b"></div><div class="bar-label-val">B</div></div>
+                        <div class="bar-wrapper"><div class="bar class-c"></div><div class="bar-label-val">C</div></div>
                     </div>
                 </div>
 
                 <div>
                     <div class="chart-title">2. Softmax Probabilities</div>
                     <div class="chart-container" id="softmaxChart">
-                        <div class="bar-wrapper"><div id="barSoftA" class="bar class-a"></div><div class="bar-label-val" id="percentA">0%</div></div>
-                        <div class="bar-wrapper"><div id="barSoftB" class="bar class-b"></div><div class="bar-label-val" id="percentB">0%</div></div>
-                        <div class="bar-wrapper"><div id="barSoftC" class="bar class-c"></div><div class="bar-label-val" id="percentC">0%</div></div>
+                        <div class="bar-wrapper"><div class="bar class-a"></div><div class="bar-label-val percent-val">0%</div></div>
+                        <div class="bar-wrapper"><div class="bar class-b"></div><div class="bar-label-val percent-val">0%</div></div>
+                        <div class="bar-wrapper"><div class="bar class-c"></div><div class="bar-label-val percent-val">0%</div></div>
                     </div>
-                    <div class="sum-badge">Total Probability Sum: <span id="totalSum">100</span>%</div>
+                    <div class="sum-badge">Total Probability Sum: <span>100</span>%</div>
                 </div>
             </div>
         </div>
@@ -182,6 +183,11 @@
             document.getElementById('labelC')
         ];
 
+        // تم تصحيح طريقة اختيار العناصر هنا عشان الكود ميفصلش
+        const rawBars = document.querySelectorAll('#logitsChart .bar');
+        const softBars = document.querySelectorAll('#softmaxChart .bar');
+        const softLabels = document.querySelectorAll('#softmaxChart .percent-val');
+
         function update() {
             // 1. جلب القيم من السلايدرز
             let logits = sliders.map(s => parseFloat(s.value));
@@ -195,25 +201,23 @@
             let probs = exps.map(e => e / sumExps);
 
             // 3. تحديث واجهة العرض (Bars)
-            
-            // تحديث الـ Raw Logits (Scaling: 5 units = 100% height)
             logits.forEach((val, i) => {
-                let height = Math.max(5, (val + 5) * 10); // تحويل من (-5, 5) لنسبة مئوية موجبة للرسم
-                document.querySelectorAll('.viz-panel .chart-container:first-child .bar')[i].style.height = height + '%';
+                // تحويل المدى من -5 لـ 5 إلى نسبة مئوية للطول (عشان السالب يترسم صح)
+                let height = ((val + 5) / 10) * 100; 
+                rawBars[i].style.height = height + '%';
             });
 
-            // تحديث الـ Softmax Probabilities
             probs.forEach((p, i) => {
                 let height = p * 100;
-                document.querySelectorAll('#softmaxChart .bar')[i].style.height = height + '%';
-                document.querySelectorAll('#softmaxChart .bar-label-val')[i].innerText = (p * 100).toFixed(1) + '%';
+                softBars[i].style.height = height + '%';
+                softLabels[i].innerText = (p * 100).toFixed(1) + '%';
             });
         }
 
         // ربط الحدث بكل سلايدر
         sliders.forEach(s => s.addEventListener('input', update));
 
-        // تشغيل لأول مرة
+        // تشغيل لأول مرة لضبط الشكل الافتراضي
         update();
     </script>
 </body>
