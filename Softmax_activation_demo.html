@@ -1,0 +1,220 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Softmax Interactive Masterclass</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: #f0f2f5;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 40px 20px;
+            margin: 0;
+            color: #333;
+        }
+        .main-container {
+            background: white;
+            padding: 40px;
+            border-radius: 20px;
+            box-shadow: 0 15px 35px rgba(0,0,0,0.1);
+            max-width: 1000px;
+            width: 100%;
+            text-align: center;
+        }
+        h1 { color: #005088; margin-bottom: 10px; }
+        p.subtitle { color: #666; margin-bottom: 30px; }
+
+        .demo-grid {
+            display: grid;
+            grid-template-columns: 1fr 2fr;
+            gap: 40px;
+            align-items: start;
+        }
+
+        /* تنسيق الـ Sliders */
+        .controls-panel {
+            background: #f8fafc;
+            padding: 25px;
+            border-radius: 15px;
+            border: 1px solid #e2e8f0;
+        }
+        .slider-group {
+            margin-bottom: 25px;
+            text-align: left;
+        }
+        .slider-label {
+            display: flex;
+            justify-content: space-between;
+            font-weight: bold;
+            margin-bottom: 8px;
+        }
+        input[type=range] {
+            width: 100%;
+            cursor: pointer;
+        }
+
+        /* تنسيق الأعمدة (Bars) */
+        .viz-panel {
+            display: flex;
+            flex-direction: column;
+            gap: 30px;
+        }
+        .chart-container {
+            height: 200px;
+            display: flex;
+            align-items: flex-end;
+            justify-content: space-around;
+            padding: 20px;
+            background: #fff;
+            border-bottom: 3px solid #cbd5e1;
+            position: relative;
+        }
+        .bar-wrapper {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            width: 80px;
+        }
+        .bar {
+            width: 100%;
+            transition: height 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            border-radius: 5px 5px 0 0;
+            position: relative;
+        }
+        .bar-label-val {
+            margin-top: 10px;
+            font-weight: bold;
+            font-size: 0.9em;
+        }
+        .chart-title {
+            font-weight: bold;
+            margin-bottom: 10px;
+            color: #005088;
+        }
+
+        /* ألوان مخصصة لكل كلاس */
+        .class-a { background: #e67e22; } /* Orange */
+        .class-b { background: #3498db; } /* Blue */
+        .class-c { background: #2ecc71; } /* Green */
+
+        .sum-badge {
+            background: #11CAA0;
+            color: white;
+            padding: 5px 15px;
+            border-radius: 20px;
+            font-weight: bold;
+            display: inline-block;
+            margin-top: 10px;
+        }
+
+        .formula-box {
+            margin-top: 30px;
+            padding: 15px;
+            background: #eef2f7;
+            border-radius: 10px;
+            font-family: 'Courier New', Courier, monospace;
+            font-size: 1.1em;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="main-container">
+        <h1>Softmax Activation Interactive Demo</h1>
+        <p class="subtitle">Adjust the raw scores (Logits) to see how Softmax distributes probabilities.</p>
+
+        <div class="demo-grid">
+            <div class="controls-panel">
+                <div class="slider-group">
+                    <div class="slider-label"><span>Class A Score</span><span id="labelA">2.5</span></div>
+                    <input type="range" id="scoreA" min="-5" max="5" step="0.1" value="2.5">
+                </div>
+                <div class="slider-group">
+                    <div class="slider-label"><span>Class B Score</span><span id="labelB">-1.0</span></div>
+                    <input type="range" id="scoreB" min="-5" max="5" step="0.1" value="-1.0">
+                </div>
+                <div class="slider-group">
+                    <div class="slider-label"><span>Class C Score</span><span id="labelC">1.2</span></div>
+                    <input type="range" id="scoreC" min="-5" max="5" step="0.1" value="1.2">
+                </div>
+            </div>
+
+            <div class="viz-panel">
+                <div>
+                    <div class="chart-title">1. Raw Output (Logits)</div>
+                    <div class="chart-container" id="logitsChart">
+                        <div class="bar-wrapper"><div id="barRawA" class="bar class-a"></div><div class="bar-label-val">A</div></div>
+                        <div class="bar-wrapper"><div id="barRawB" class="bar class-b"></div><div class="bar-label-val">B</div></div>
+                        <div class="bar-wrapper"><div id="barRawC" class="bar class-c"></div><div class="bar-label-val">C</div></div>
+                    </div>
+                </div>
+
+                <div>
+                    <div class="chart-title">2. Softmax Probabilities</div>
+                    <div class="chart-container" id="softmaxChart">
+                        <div class="bar-wrapper"><div id="barSoftA" class="bar class-a"></div><div class="bar-label-val" id="percentA">0%</div></div>
+                        <div class="bar-wrapper"><div id="barSoftB" class="bar class-b"></div><div class="bar-label-val" id="percentB">0%</div></div>
+                        <div class="bar-wrapper"><div id="barSoftC" class="bar class-c"></div><div class="bar-label-val" id="percentC">0%</div></div>
+                    </div>
+                    <div class="sum-badge">Total Probability Sum: <span id="totalSum">100</span>%</div>
+                </div>
+            </div>
+        </div>
+
+        <div class="formula-box">
+            P(i) = exp(x<sub>i</sub>) / Σ exp(x<sub>j</sub>)
+        </div>
+    </div>
+
+    <script>
+        const sliders = [
+            document.getElementById('scoreA'),
+            document.getElementById('scoreB'),
+            document.getElementById('scoreC')
+        ];
+        
+        const labels = [
+            document.getElementById('labelA'),
+            document.getElementById('labelB'),
+            document.getElementById('labelC')
+        ];
+
+        function update() {
+            // 1. جلب القيم من السلايدرز
+            let logits = sliders.map(s => parseFloat(s.value));
+            
+            // تحديث أرقام الليبلز بجانب السلايدرز
+            logits.forEach((val, i) => labels[i].innerText = val.toFixed(1));
+
+            // 2. حساب الـ Softmax
+            let exps = logits.map(v => Math.exp(v));
+            let sumExps = exps.reduce((a, b) => a + b, 0);
+            let probs = exps.map(e => e / sumExps);
+
+            // 3. تحديث واجهة العرض (Bars)
+            
+            // تحديث الـ Raw Logits (Scaling: 5 units = 100% height)
+            logits.forEach((val, i) => {
+                let height = Math.max(5, (val + 5) * 10); // تحويل من (-5, 5) لنسبة مئوية موجبة للرسم
+                document.querySelectorAll('.viz-panel .chart-container:first-child .bar')[i].style.height = height + '%';
+            });
+
+            // تحديث الـ Softmax Probabilities
+            probs.forEach((p, i) => {
+                let height = p * 100;
+                document.querySelectorAll('#softmaxChart .bar')[i].style.height = height + '%';
+                document.querySelectorAll('#softmaxChart .bar-label-val')[i].innerText = (p * 100).toFixed(1) + '%';
+            });
+        }
+
+        // ربط الحدث بكل سلايدر
+        sliders.forEach(s => s.addEventListener('input', update));
+
+        // تشغيل لأول مرة
+        update();
+    </script>
+</body>
+</html>
