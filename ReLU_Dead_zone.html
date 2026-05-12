@@ -1,0 +1,196 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dying ReLU: Professional Visualization</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        :root {
+            --primary: #2563eb;
+            --danger: #dc2626;
+            --success: #16a34a;
+            --bg: #f8fafc;
+        }
+        body {
+            font-family: 'Inter', system-ui, sans-serif;
+            background-color: var(--bg);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 40px 20px;
+            color: #1e293b;
+        }
+        .container {
+            background: white;
+            padding: 30px;
+            border-radius: 16px;
+            box-shadow: 0 10px 25px rgba(0,0,0,0.05);
+            max-width: 900px;
+            width: 100%;
+        }
+        header { text-align: center; margin-bottom: 30px; }
+        h1 { margin: 0; color: #0f172a; font-size: 1.8rem; }
+        .status-badge {
+            display: inline-block;
+            padding: 8px 20px;
+            border-radius: 99px;
+            font-weight: bold;
+            margin-top: 15px;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+        .status-active { background: #dcfce7; color: var(--success); }
+        .status-dead { background: #fee2e2; color: var(--danger); animation: blink 1s infinite; }
+        @keyframes blink { 50% { opacity: 0.7; } }
+
+        .dashboard {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 30px;
+            margin-top: 20px;
+        }
+        .controls {
+            background: #f1f5f9;
+            padding: 20px;
+            border-radius: 12px;
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+        }
+        .slider-box label {
+            display: flex;
+            justify-content: space-between;
+            font-weight: 600;
+            margin-bottom: 8px;
+        }
+        input[type=range] { width: 100%; cursor: pointer; }
+        
+        .viz-box { position: relative; height: 350px; }
+        
+        .explanation {
+            margin-top: 30px;
+            padding: 20px;
+            background: #eff6ff;
+            border-radius: 12px;
+            border-left: 4px solid var(--primary);
+            font-size: 0.95rem;
+            line-height: 1.6;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="container">
+        <header>
+            <h1>Dying ReLU Diagnostic Tool</h1>
+            <div id="statusBadge" class="status-badge status-active">Neuron Status: Active</div>
+        </header>
+
+        <div class="dashboard">
+            <div class="controls">
+                <div class="slider-box">
+                    <label>Weight ($w$) <span id="wVal">1.0</span></label>
+                    <input type="range" id="wSlider" min="-2" max="2" step="0.1" value="1">
+                </div>
+                <div class="slider-box">
+                    <label>Bias ($b$) <span id="bVal">0.0</span></label>
+                    <input type="range" id="bSlider" min="-10" max="10" step="0.5" value="0">
+                </div>
+                <div style="font-size: 0.85rem; color: #64748b;">
+                    Formula: $z = w \cdot x + b$ <br>
+                    Output: $f(z) = \max(0, z)$
+                </div>
+            </div>
+
+            <div class="viz-box">
+                <canvas id="reluChart"></canvas>
+            </div>
+        </div>
+
+        <div class="explanation">
+            <strong>What is happening?</strong> The dots represent a batch of input data. When the 
+            <strong>Bias</strong> is too negative, it pushes all inputs into the "Dead Zone" (z &le; 0). 
+            Since the gradient of ReLU is 0 for negative values, the weights can no longer be updated 
+            during backpropagation. The neuron "dies" and stays at zero forever.
+        </div>
+    </div>
+
+    <script>
+        const ctx = document.getElementById('reluChart').getContext('2d');
+        const wSlider = document.getElementById('wSlider');
+        const bSlider = document.getElementById('bSlider');
+        const wVal = document.getElementById('wVal');
+        const bVal = document.getElementById('bVal');
+        const statusBadge = document.getElementById('statusBadge');
+
+        // Fixed input samples (x values)
+        const inputs = [1, 2, 3, 4, 5];
+
+        const chart = new Chart(ctx, {
+            type: 'scatter',
+            data: {
+                datasets: [{
+                    label: 'Neurons Activity',
+                    data: [],
+                    backgroundColor: '#2563eb',
+                    pointRadius: 6
+                }, {
+                    label: 'ReLU Function',
+                    data: [
+                        {x: -10, y: 0}, {x: 0, y: 0}, {x: 10, y: 10}
+                    ],
+                    type: 'line',
+                    borderColor: '#94a3b8',
+                    borderDash: [5, 5],
+                    fill: false,
+                    pointRadius: 0
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                scales: {
+                    x: { min: -10, max: 10, title: { display: true, text: 'Weighted Sum (z)' } },
+                    y: { min: -1, max: 10, title: { display: true, text: 'ReLU Output' } }
+                },
+                plugins: { legend: { display: false } }
+            }
+        });
+
+        function update() {
+            const w = parseFloat(wSlider.value);
+            const b = parseFloat(bSlider.value);
+            
+            wVal.innerText = w.toFixed(1);
+            bVal.innerText = b.toFixed(1);
+
+            const points = inputs.map(x => {
+                const z = (w * x) + b;
+                const y = Math.max(0, z);
+                return { x: z, y: y };
+            });
+
+            chart.data.datasets[0].data = points;
+            
+            // Logic to check if neuron is "Dead"
+            const isDead = points.every(p => p.x <= 0);
+            if (isDead) {
+                statusBadge.innerText = "Neuron Status: DEAD (0 Gradient)";
+                statusBadge.className = "status-badge status-dead";
+                chart.data.datasets[0].backgroundColor = '#dc2626';
+            } else {
+                statusBadge.innerText = "Neuron Status: Active";
+                statusBadge.className = "status-badge status-active";
+                chart.data.datasets[0].backgroundColor = '#2563eb';
+            }
+
+            chart.update('none');
+        }
+
+        wSlider.addEventListener('input', update);
+        bSlider.addEventListener('input', update);
+        update();
+    </script>
+</body>
+</html>
