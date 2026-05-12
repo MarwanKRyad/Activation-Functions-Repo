@@ -1,0 +1,494 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+            color: var(--text);
+    <title>XOR Demo</title>
+    <style>
+        :root {
+            --primary: #2563eb;
+            --bg: #f8fafc;
+            --surface: #ffffff;
+            --text: #1e293b;
+            --border: #e2e8f0;
+            --class-a: #f59e0b; /* Orange */
+            --class-b: #3b82f6; /* Blue */
+        }
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: var(--bg);
+            color: var(--text);
+            margin: 0;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+        .header { text-align: center; margin-bottom: 20px; }
+        .header h1 { margin: 0; color: #0f172a; }
+        .header p { color: #64748b; margin-top: 5px; font-weight: 500; }
+        
+        .dashboard {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 30px;
+            background: var(--surface);
+            padding: 30px;
+            border-radius: 16px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.08);
+            max-width: 1050px;
+            width: 100%;
+        }
+
+        .controls {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+            min-width: 300px;
+        }
+
+        .control-group {
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+            background: #f8fafc;
+            padding: 10px 15px;
+            border-radius: 8px;
+            border: 1px solid var(--border);
+        }
+        .control-group label { font-weight: bold; font-size: 0.95rem; display: flex; justify-content: space-between; }
+        .val-badge { color: var(--primary); font-weight: 900; }
+        
+        select, button, input[type=range] {
+            padding: 8px;
+            border-radius: 6px;
+            border: 1px solid var(--border);
+            font-size: 1rem;
+            outline: none;
+        }
+        input[type=range] { padding: 0; cursor: pointer; height: 6px; accent-color: var(--primary); }
+        
+        button {
+            background-color: var(--primary);
+            color: white;
+            font-weight: bold;
+            cursor: pointer;
+            border: none;
+            transition: 0.2s;
+            padding: 12px;
+            border-radius: 8px;
+        }
+        button:hover { background-color: #1d4ed8; }
+        button.stop { background-color: #ef4444; }
+        button.stop:hover { background-color: #b91c1c; }
+
+        .stats {
+            background: #f1f5f9;
+            padding: 12px 20px;
+            border-radius: 8px;
+            font-family: monospace;
+            font-size: 1.1rem;
+            display: flex;
+            justify-content: space-between;
+            border-left: 4px solid var(--primary);
+        }
+
+        /* Architecture Visualization */
+        .arch-viz {
+            background: #ffffff;
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 15px;
+            text-align: center;
+        }
+        .arch-viz h3 { margin: 0 0 10px 0; font-size: 1rem; color: #475569; }
+
+        .visualization {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 10px;
+            min-width: 400px;
+        }
+        #nnCanvas {
+            border: 2px solid var(--border);
+            border-radius: 8px;
+            background-color: white;
+            box-shadow: inset 0 0 10px rgba(0,0,0,0.05);
+            width: 100%;
+            max-width: 450px;
+        }
+        .legend {
+            display: flex;
+            gap: 15px;
+            font-size: 0.9rem;
+            font-weight: bold;
+        }
+        .dot {
+            display: inline-block;
+            width: 12px; height: 12px;
+            border-radius: 50%;
+            border: 2px solid white;
+            box-shadow: 0 0 3px rgba(0,0,0,0.5);
+        }
+    </style>
+</head>
+<body>
+
+    <div class="header">
+        <h1>Ultimate Deep Learning Playground</h1>
+        <p>Fully Dynamic Multilayer Perceptron (MLP) Engine in Pure JS</p>
+    </div>
+
+    <div class="dashboard">
+        <div class="controls">
+            
+            <div class="control-group">
+                <label>Number of Hidden Layers <span class="val-badge" id="layerCountDisplay">1</span></label>
+                <input type="range" id="layers" min="1" max="5" value="1" 
+                       oninput="document.getElementById('layerCountDisplay').innerText = this.value; resetNetwork();">
+            </div>
+
+            <div class="control-group">
+                <label>Neurons (Per Hidden Layer) <span class="val-badge" id="neuronCountDisplay">4</span></label>
+                <input type="range" id="neurons" min="1" max="8" value="4" 
+                       oninput="document.getElementById('neuronCountDisplay').innerText = this.value; resetNetwork();">
+            </div>
+
+            <div style="display: flex; gap: 10px;">
+                <div class="control-group" style="flex: 1;">
+                    <label>Activation</label>
+                    <select id="activation" onchange="resetNetwork()">
+                        <option value="tanh" selected>Tanh</option>
+                        <option value="relu">ReLU</option>
+                        <option value="sigmoid">Sigmoid</option>
+                        <option value="linear">Linear</option>
+                    </select>
+                </div>
+                <div class="control-group" style="flex: 1;">
+                    <label>Learning Rate</label>
+                    <select id="learningRate">
+                        <option value="0.01">0.01</option>
+                        <option value="0.05" selected>0.05</option>
+                        <option value="0.1">0.1</option>
+                        <option value="0.3">0.3</option>
+                    </select>
+                </div>
+            </div>
+
+            <div class="stats">
+                <div>Epoch: <span id="epochDisplay" style="font-weight: bold;">0</span></div>
+                <div>Loss: <span id="lossDisplay" style="font-weight: bold; color: #ef4444;">0.0000</span></div>
+            </div>
+
+            <div style="display: flex; gap: 10px;">
+                <button id="trainBtn" onclick="toggleTraining()" style="flex: 2;">Start Training</button>
+                <button onclick="resetNetwork()" style="flex: 1; background-color: #64748b;">Reset</button>
+            </div>
+
+            <div class="arch-viz">
+                <h3>Live Network Architecture</h3>
+                <canvas id="archCanvas" width="350" height="180"></canvas>
+            </div>
+        </div>
+
+        <div class="visualization">
+            <div style="font-weight: bold; font-size: 1.1rem; color: #333;">Decision Boundary (XOR Dataset)</div>
+            <canvas id="nnCanvas" width="450" height="450"></canvas>
+            <div class="legend">
+                <div><span class="dot" style="background: var(--class-a);"></span> Class A (Orange)</div>
+                <div><span class="dot" style="background: var(--class-b);"></span> Class B (Blue)</div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // --- 1. Dataset Generation (Original XOR Problem) ---
+        const dataPoints = [];
+        for (let i = 0; i < 150; i++) {
+            let x1 = (Math.random() * 2) - 1; 
+            let x2 = (Math.random() * 2) - 1;
+            // XOR logic restored
+            if (x1 * x2 > 0.05) dataPoints.push({x1, x2, y: 1}); 
+            else if (x1 * x2 < -0.05) dataPoints.push({x1, x2, y: 0}); 
+        }
+
+        // --- 2. Dynamic Deep Neural Network Engine ---
+        class DeepNeuralNetwork {
+            constructor(inputNodes, numHiddenLayers, nodesPerLayer, outputNodes, actName) {
+                this.layerSizes = [inputNodes];
+                for(let i=0; i < numHiddenLayers; i++) this.layerSizes.push(nodesPerLayer);
+                this.layerSizes.push(outputNodes);
+                
+                this.L = this.layerSizes.length; 
+                this.actName = actName;
+                
+                this.W = []; 
+                this.b = []; 
+
+                for (let l = 1; l < this.L; l++) {
+                    let rows = this.layerSizes[l];
+                    let cols = this.layerSizes[l-1];
+                    let scale = Math.sqrt(2.0 / cols); 
+                    this.W.push(Array.from({length: rows}, () => Array.from({length: cols}, () => (Math.random() - 0.5) * scale * 2)));
+                    this.b.push(Array(rows).fill(0));
+                }
+            }
+
+            activate(x, name) {
+                if (name === 'relu') return Math.max(0, x);
+                if (name === 'sigmoid') return 1 / (1 + Math.exp(-x));
+                if (name === 'tanh') return Math.tanh(x);
+                if (name === 'linear') return x;
+            }
+            derive(x, act_x, name) {
+                if (name === 'relu') return x > 0 ? 1 : 0.01; 
+                if (name === 'sigmoid') return act_x * (1 - act_x);
+                if (name === 'tanh') return 1 - (act_x * act_x);
+                if (name === 'linear') return 1;
+            }
+
+            forward(x1, x2) {
+                this.a = [[x1, x2]]; 
+                this.z = [[]];       
+
+                for (let l = 0; l < this.L - 1; l++) {
+                    let W_curr = this.W[l];
+                    let b_curr = this.b[l];
+                    let a_prev = this.a[l];
+                    
+                    let z_l = [];
+                    let a_l = [];
+                    let isOutputLayer = (l === this.L - 2);
+                    let currentAct = isOutputLayer ? 'sigmoid' : this.actName;
+
+                    for (let i = 0; i < W_curr.length; i++) {
+                        let sum = b_curr[i];
+                        for (let j = 0; j < W_curr[i].length; j++) {
+                            sum += W_curr[i][j] * a_prev[j];
+                        }
+                        z_l.push(sum);
+                        a_l.push(this.activate(sum, currentAct));
+                    }
+                    this.z.push(z_l);
+                    this.a.push(a_l);
+                }
+                return this.a[this.L - 1][0];
+            }
+
+            backward(x1, x2, target, lr) {
+                let output = this.forward(x1, x2);
+                let error = output - target;
+
+                let dZ = [];
+                let dW = [];
+                let db = [];
+
+                let last_idx = this.L - 2; 
+                
+                let dZ_out = error * this.derive(this.z[last_idx + 1][0], this.a[last_idx + 1][0], 'sigmoid');
+                dZ[last_idx] = [dZ_out];
+                
+                for (let l = last_idx; l >= 0; l--) {
+                    let a_prev = this.a[l];
+                    let curr_dZ = dZ[l];
+                    
+                    dW[l] = Array.from({length: this.W[l].length}, () => Array(this.W[l][0].length).fill(0));
+                    db[l] = [...curr_dZ];
+
+                    for (let i = 0; i < this.W[l].length; i++) {
+                        for (let j = 0; j < this.W[l][i].length; j++) {
+                            dW[l][i][j] = curr_dZ[i] * a_prev[j];
+                        }
+                    }
+
+                    if (l > 0) {
+                        dZ[l-1] = Array(this.W[l-1].length).fill(0);
+                        for (let j = 0; j < this.W[l][0].length; j++) {
+                            let sum = 0;
+                            for (let i = 0; i < this.W[l].length; i++) {
+                                sum += this.W[l][i][j] * curr_dZ[i];
+                            }
+                            dZ[l-1][j] = sum * this.derive(this.z[l][j], this.a[l][j], this.actName);
+                        }
+                    }
+                }
+
+                for (let l = 0; l < this.W.length; l++) {
+                    for (let i = 0; i < this.W[l].length; i++) {
+                        this.b[l][i] -= lr * db[l][i];
+                        for (let j = 0; j < this.W[l][i].length; j++) {
+                            this.W[l][i][j] -= lr * dW[l][i][j];
+                        }
+                    }
+                }
+                return error * error; 
+            }
+        }
+
+        // --- 3. UI, Drawing & Training Logic ---
+        const canvas = document.getElementById('nnCanvas');
+        const ctx = canvas.getContext('2d');
+        const res = 10; 
+        const cols = canvas.width / res;
+        const rows = canvas.height / res;
+
+        const archCanvas = document.getElementById('archCanvas');
+        const archCtx = archCanvas.getContext('2d');
+
+        let nn;
+        let isTraining = false;
+        let epoch = 0;
+        let animFrame;
+
+        function drawArchitecture(numLayers, nodesPerLayer) {
+            archCtx.clearRect(0, 0, archCanvas.width, archCanvas.height);
+            
+            const w = archCanvas.width;
+            const h = archCanvas.height;
+            const radius = Math.min(10, 100 / nodesPerLayer); 
+            
+            const layers = [2]; 
+            for(let i=0; i<numLayers; i++) layers.push(nodesPerLayer); 
+            layers.push(1); 
+
+            const xOffset = w / (layers.length + 1);
+            const nodePositions = [];
+
+            for (let l = 0; l < layers.length; l++) {
+                let nodesInLayer = layers[l];
+                let ySpacing = h / (nodesInLayer + 1);
+                let layerPositions = [];
+                for (let n = 0; n < nodesInLayer; n++) {
+                    layerPositions.push({ x: xOffset * (l + 1), y: ySpacing * (n + 1) });
+                }
+                nodePositions.push(layerPositions);
+            }
+
+            archCtx.lineWidth = 1;
+            archCtx.strokeStyle = 'rgba(203, 213, 225, 0.6)'; 
+            for (let l = 0; l < layers.length - 1; l++) {
+                for (let n1 of nodePositions[l]) {
+                    for (let n2 of nodePositions[l + 1]) {
+                        archCtx.beginPath();
+                        archCtx.moveTo(n1.x, n1.y);
+                        archCtx.lineTo(n2.x, n2.y);
+                        archCtx.stroke();
+                    }
+                }
+            }
+
+            for (let l = 0; l < layers.length; l++) {
+                archCtx.fillStyle = (l === 0) ? '#94a3b8' : (l === layers.length - 1) ? '#ef4444' : '#10b981';
+                archCtx.strokeStyle = '#ffffff';
+                archCtx.lineWidth = 1.5;
+                
+                for (let pos of nodePositions[l]) {
+                    archCtx.beginPath();
+                    archCtx.arc(pos.x, pos.y, radius, 0, Math.PI * 2);
+                    archCtx.fill();
+                    archCtx.stroke();
+                }
+            }
+            
+            archCtx.fillStyle = '#64748b';
+            archCtx.font = '11px Arial';
+            archCtx.textAlign = 'center';
+            archCtx.fillText('Input', nodePositions[0][0].x, h - 5);
+            if(layers.length > 2) archCtx.fillText('Hidden(s)', w/2, h - 5);
+            archCtx.fillText('Out', nodePositions[layers.length-1][0].x, h - 5);
+        }
+
+        function resetNetwork() {
+            let numLayers = parseInt(document.getElementById('layers').value);
+            let nodesPerLayer = parseInt(document.getElementById('neurons').value);
+            let actName = document.getElementById('activation').value;
+            
+            nn = new DeepNeuralNetwork(2, numLayers, nodesPerLayer, 1, actName);
+            
+            epoch = 0;
+            document.getElementById('epochDisplay').innerText = "0";
+            document.getElementById('lossDisplay').innerText = "0.0000";
+            
+            drawBoundary();
+            drawArchitecture(numLayers, nodesPerLayer);
+            
+            if(isTraining) toggleTraining();
+        }
+
+        function drawBoundary() {
+            for (let i = 0; i < cols; i++) {
+                for (let j = 0; j < rows; j++) {
+                    let x1 = (i / cols) * 2 - 1; 
+                    let x2 = -((j / rows) * 2 - 1); 
+                    
+                    let pred = nn.forward(x1, x2);
+                    
+                    let r = Math.round(pred * 245 + (1 - pred) * 59);
+                    let g = Math.round(pred * 158 + (1 - pred) * 130);
+                    let b = Math.round(pred * 11 + (1 - pred) * 246);
+                    
+                    ctx.fillStyle = `rgba(${r}, ${g}, ${b}, 0.5)`; 
+                    ctx.fillRect(i * res, j * res, res, res);
+                }
+            }
+
+            for (let pt of dataPoints) {
+                let px = ((pt.x1 + 1) / 2) * canvas.width;
+                let py = ((-pt.x2 + 1) / 2) * canvas.height;
+                
+                ctx.beginPath();
+                ctx.arc(px, py, 6, 0, Math.PI * 2);
+                ctx.fillStyle = pt.y === 1 ? '#f59e0b' : '#3b82f6';
+                ctx.fill();
+                ctx.strokeStyle = 'rgba(255,255,255,0.8)';
+                ctx.lineWidth = 1;
+                ctx.stroke();
+            }
+        }
+
+        function trainLoop() {
+            if (!isTraining) return;
+            
+            let lr = parseFloat(document.getElementById('learningRate').value);
+            let totalLoss = 0;
+            
+            for(let e = 0; e < 10; e++) {
+                dataPoints.sort(() => Math.random() - 0.5);
+                let epochLoss = 0;
+                for (let pt of dataPoints) {
+                    epochLoss += nn.backward(pt.x1, pt.x2, pt.y, lr);
+                }
+                totalLoss += epochLoss / dataPoints.length;
+                epoch++;
+            }
+
+            document.getElementById('epochDisplay').innerText = epoch;
+            document.getElementById('lossDisplay').innerText = (totalLoss / 10).toFixed(4);
+            
+            drawBoundary();
+            animFrame = requestAnimationFrame(trainLoop);
+        }
+
+        function toggleTraining() {
+            const btn = document.getElementById('trainBtn');
+            isTraining = !isTraining;
+            if (isTraining) {
+                btn.innerText = "Pause Training";
+                btn.className = "stop";
+                trainLoop();
+            } else {
+                btn.innerText = "Start Training";
+                btn.className = "";
+                cancelAnimationFrame(animFrame);
+            }
+        }
+
+        // Initialize on load
+        resetNetwork();
+    </script>
+</body>
+</html>
